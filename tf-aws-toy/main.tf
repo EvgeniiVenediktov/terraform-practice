@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -10,12 +10,24 @@ terraform {
 
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+  owners = [var.ami_ownerid_canonical]
+}
 
 resource "aws_instance" "example" {
-  ami           = "ami-04752fceda1274920"
+  ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
+
+  tags = {
+    Name = var.instance_name
+  }
 
 }
