@@ -1,0 +1,95 @@
+# cluster-config.yaml.tftpl
+# -------------------------
+# ParallelCluster YAML configuration template.
+# Terraform renders this with templatefile() and passes in
+# subnet IDs, security group IDs, and variable values.
+#
+# This file owns WHAT the cluster looks like.
+# Terraform owns the network and renders this template.
+# The lifecycle script owns HOW the cluster is created/updated/destroyed.
+
+Region: ${aws_region}
+
+# ---------------------------------------------------------------
+# Image — required by ParallelCluster
+# ---------------------------------------------------------------
+Image:
+  Os: alinux2023
+
+# ---------------------------------------------------------------
+# Head Node
+# ---------------------------------------------------------------
+HeadNode:
+  InstanceType: ${head_node_instance_type}
+
+  Networking:
+    SubnetId: ${public_subnet_id}
+    AdditionalSecurityGroups:
+      - ${head_ssh_sg_id}
+
+  Ssh:
+    KeyName: ${ssh_key_name}
+
+  Iam:
+    AdditionalIamPolicies:
+      - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  LocalStorage:
+    RootVolume:
+      Size: 100
+      VolumeType: gp3
+
+# ---------------------------------------------------------------
+# Scheduling — Slurm queues, scaling, compute resources
+# ---------------------------------------------------------------
+Scheduling:
+  Scheduler: slurm
+
+  SlurmSettings:
+    ScaledownIdletime: ${scaledown_idletime}
+
+  SlurmQueues:
+    - Name: compute
+      CapacityType: ONDEMAND
+
+      Networking:
+        SubnetIds:
+          - ${compute_subnet_id}
+        PlacementGroup:
+          Enabled: true
+
+      ComputeResources:
+        - Name: hpc-x86-nodes
+          InstanceType: ${compute_instance_type}
+          MinCount: ${min_compute_nodes}
+          MaxCount: ${max_compute_nodes}
+          Efa:
+            Enabled: true
+
+      Iam:
+        AdditionalIamPolicies:
+          - Policy: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+# ---------------------------------------------------------------
+# Shared Storage — FSx Lustre 
+# ---------------------------------------------------------------
+SharedStorage:
+  - Name: lustre
+    StorageType: FsxLustre
+    MountDir: /shared
+    FsxLustreSettings:
+      StorageCapacity: 1200
+      DeploymentType: SCRATCH_2          # or PERSISTENT_2
+      
+
+# ---------------------------------------------------------------
+# Monitoring
+# ---------------------------------------------------------------
+Monitoring:
+  Logs:
+    CloudWatch:
+      Enabled: true
+      RetentionInDays: 14
+  Dashboards:
+    CloudWatch:
+      Enabled: true
